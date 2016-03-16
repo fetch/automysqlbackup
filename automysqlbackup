@@ -602,17 +602,16 @@ fullschema () {
 }
 
 # @info:	Process a single db.
-# @args:	subfolder, prefix, midfix, extension, rotation, rotation_divisor, rotation_string, 0/1 (db/dbs), db[, db ...]
+# @args:	subfolder, midfix, extension, rotation, rotation_divisor, rotation_string, 0/1 (db/dbs), db[, db ...]
 process_dbs() {
 	local subfolder="$1"
-	local prefix="$2"
-	local midfix="$3"
-	local extension="$4"
-	local rotation="$5"
-	local rotation_divisor="$6"
-	local rotation_string="$7"
-	local multipledbs="$8"
-	shift 8
+	local midfix="$2"
+	local extension="$3"
+	local rotation="$4"
+	local rotation_divisor="$5"
+	local rotation_string="$6"
+	local multipledbs="$7"
+	shift 7
 
 	local name
 	local subsubfolder
@@ -639,7 +638,7 @@ process_dbs() {
 	}
 
 	manifest_file="${CONFIG_backup_dir}/${subfolder}${subsubfolder}/Manifest"
-	fname="${CONFIG_backup_dir}/${subfolder}${subsubfolder}/${prefix}${name}_${datetimestamp}${midfix}${extension}"
+	fname="${CONFIG_backup_dir}/${subfolder}${subsubfolder}/${name}_${datetimestamp}${midfix}${extension}"
 
 	(( $CONFIG_debug )) && echo "DEBUG: process_dbs >> Setting manifest file to: ${manifest_file}"
 
@@ -669,7 +668,7 @@ process_dbs() {
 #			## -> get latest differential manifest entry for specified db
 #			if get_latest_manifest_entry_for_db "$db" 1; then
 #			pid="${manifest_entry[2]}"
-#			# filename format: prefix_db_YYYY-MM-DD_HHhMMm_[A-Za-z0-9]{8}(.sql|.diff)(.gz|.bz2)(.enc)
+#			# filename format: db_YYYY-MM-DD_HHhMMm_[A-Za-z0-9]{8}(.sql|.diff)(.gz|.bz2)(.enc)
 #			FileStub=${manifest_entry[0]%.@(sql|diff)*}
 #			FileExt=${manifest_entry[0]#"$FileStub"}
 #			re=".*\.enc.*";		[[ "$FileExt" =~ $re ]] && let "filename_flags|=$filename_flag_encrypted"
@@ -686,7 +685,7 @@ process_dbs() {
 		# Create a differential backup if a master entry in the manifest exists, it isn't the day we do weekly master backups or the master file we fetched is already from today.
 		if get_latest_manifest_entry_for_db "$db" 0 && ( (( ${date_dayno_of_week} != ${CONFIG_do_weekly} )) || [[ "${manifest_entry[0]}" = *_$(date +%Y-%m-%d)_* ]] ); then
 			pid="${manifest_entry[2]}"
-			# filename format: prefix_db_YYYY-MM-DD_HHhMMm_[A-Za-z0-9]{8}(.sql|.diff)(.gz|.bz2)(.enc)
+			# filename format: db_YYYY-MM-DD_HHhMMm_[A-Za-z0-9]{8}(.sql|.diff)(.gz|.bz2)(.enc)
 			FileStub="${manifest_entry[0]%.@(sql|diff)*}"
 			FileExt="${manifest_entry[0]#"$FileStub"}"
 			re=".*\.enc.*";		[[ "$FileExt" =~ $re ]] && let "filename_flags|=$filename_flag_encrypted"
@@ -1883,7 +1882,6 @@ method_backup () {
 		echo
 
 		subfolder="monthly"
-		prefix="monthly_"
 		midfix="_${date_month}"
 		extension=".sql"
 		rotation="${CONFIG_rotation_monthly}"
@@ -1893,14 +1891,14 @@ method_backup () {
 		if [[ "${CONFIG_mysql_dump_use_separate_dirs}" = "yes" ]]; then
 			for db in "${CONFIG_db_month_names[@]}"; do
 				echo "Monthly Backup of Database ( ${db} )"
-				(shopt -s nullglob dotglob; f=("${CONFIG_backup_dir}/${subfolder}/${db}/${prefix}${db}_${date_stamp}_"[0-9][0-9]"h"[0-9][0-9]"m${midfix}${extension}${suffix}"); ((${#f[@]}))) && continue
-				process_dbs "$subfolder" "$prefix" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 0 "$db"
+				(shopt -s nullglob dotglob; f=("${CONFIG_backup_dir}/${subfolder}/${db}/${db}_${date_stamp}_"[0-9][0-9]"h"[0-9][0-9]"m${midfix}${extension}${suffix}"); ((${#f[@]}))) && continue
+				process_dbs "$subfolder" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 0 "$db"
 				echo ----------------------------------------------------------------------
 			done
 		else
 			echo "Monthly backup of databases ( ${CONFIG_db_month_names[@]} )."
-			(shopt -s nullglob dotglob; f=("${CONFIG_backup_dir}/${subfolder}/${prefix}all-databases_${date_stamp}_"[0-9][0-9]"h"[0-9][0-9]"m${midfix}${extension}${suffix}"); ((${#f[@]}))) &&
-			process_dbs "$subfolder" "$prefix" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 1 "${CONFIG_db_month_names[@]}"
+			(shopt -s nullglob dotglob; f=("${CONFIG_backup_dir}/${subfolder}/all-databases_${date_stamp}_"[0-9][0-9]"h"[0-9][0-9]"m${midfix}${extension}${suffix}"); ((${#f[@]}))) &&
+			process_dbs "$subfolder" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 1 "${CONFIG_db_month_names[@]}"
 			echo "----------------------------------------------------------------------"
 		fi
 	fi
@@ -1912,7 +1910,6 @@ method_backup () {
 		echo
 
 		subfolder="weekly"
-		prefix="weekly_"
 		midfix="_${date_weekno}"
 		extension=".sql"
 		rotation="${CONFIG_rotation_weekly}"
@@ -1921,14 +1918,14 @@ method_backup () {
 		if [[ "${CONFIG_mysql_dump_use_separate_dirs}" = "yes" ]]; then
 			for db in "${CONFIG_db_names[@]}"; do
 				echo "Weekly Backup of Database ( ${db} )"
-				(shopt -s nullglob dotglob; f=("${CONFIG_backup_dir}/${subfolder}/${db}/${prefix}${db}_${date_stamp}_"[0-9][0-9]"h"[0-9][0-9]"m${midfix}${extension}${suffix}"); ((${#f[@]}))) && continue
-				process_dbs "$subfolder" "$prefix" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 0 "$db"
+				(shopt -s nullglob dotglob; f=("${CONFIG_backup_dir}/${subfolder}/${db}/${db}_${date_stamp}_"[0-9][0-9]"h"[0-9][0-9]"m${midfix}${extension}${suffix}"); ((${#f[@]}))) && continue
+				process_dbs "$subfolder" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 0 "$db"
 				echo "----------------------------------------------------------------------"
 			done
 		else
 			echo "Weekly backup of databases ( ${CONFIG_db_names[@]} )."
-			(shopt -s nullglob dotglob; f=("${CONFIG_backup_dir}/${subfolder}/${prefix}all-databases_${date_stamp}_"[0-9][0-9]"h"[0-9][0-9]"m${midfix}${extension}${suffix}"); ((${#f[@]}))) &&
-				process_dbs "$subfolder" "$prefix" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 1 "${CONFIG_db_names[@]}"
+			(shopt -s nullglob dotglob; f=("${CONFIG_backup_dir}/${subfolder}/all-databases_${date_stamp}_"[0-9][0-9]"h"[0-9][0-9]"m${midfix}${extension}${suffix}"); ((${#f[@]}))) &&
+				process_dbs "$subfolder" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 1 "${CONFIG_db_names[@]}"
 			echo "----------------------------------------------------------------------"
 		fi
 	fi
@@ -1940,7 +1937,6 @@ method_backup () {
 		echo
 
 		subfolder="daily"
-		prefix="daily_"
 		midfix="_${date_day_of_week}"
 		extension=".sql"
 		rotation="${CONFIG_rotation_daily}"
@@ -1950,12 +1946,12 @@ method_backup () {
 		if [[ "${CONFIG_mysql_dump_use_separate_dirs}" = "yes" ]]; then
 			for db in "${CONFIG_db_names[@]}"; do
 				echo "Daily Backup of Database ( ${db} )"
-				process_dbs "$subfolder" "$prefix" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 0 "$db"
+				process_dbs "$subfolder" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 0 "$db"
 				echo "----------------------------------------------------------------------"
 			done
 		else
 			echo "Daily backup of databases ( ${CONFIG_db_names[@]} )."
-			process_dbs "$subfolder" "$prefix" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 1 "${CONFIG_db_names[@]}"
+			process_dbs "$subfolder" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 1 "${CONFIG_db_names[@]}"
 			echo "----------------------------------------------------------------------"
 		fi
 	fi
